@@ -1,0 +1,78 @@
+# -----------------------------
+# Python
+# -----------------------------
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pyc
+
+# Virtual environments
+.venv/
+env/
+venv/
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+*.egg
+
+# -----------------------------
+# IDE / Editor
+# -----------------------------
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# -----------------------------
+# Logs
+# -----------------------------
+*.log
+logs/
+debug.log
+
+# -----------------------------
+# Data / Database / Vector Stores
+# -----------------------------
+data/
+chroma_db/
+*.sqlite
+*.db
+*.parquet
+*.bin
+*.index
+*.vectorstore
+
+# -----------------------------
+# OS files
+# -----------------------------
+.DS_Store
+Thumbs.db
+
+# -----------------------------
+# Environment files
+# -----------------------------
+.env
+.env.*.local
+
+# -----------------------------
+# Python testing / coverage
+# -----------------------------
+*.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+nosetests.xml
+coverage.xml
+
+# -----------------------------
+# Jupyter / Notebook / AI caches
+# -----------------------------
+.ipynb_checkpoints/
+*.ipynb
+*.ckpt
+*.pt
+*.safetensors
+.cache/
