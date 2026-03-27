@@ -8,7 +8,7 @@ from llama_index.core.ingestion import DocstoreStrategy
 from llama_index.vector_stores.chroma import ChromaVectorStore
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 from llama_parse import LlamaParse
-from enrichment import DocumentMetadataEnricher
+from app.enrichment import DocumentMetadataEnricher
 from app.core.config import settings
 
 logging.basicConfig(level=logging.INFO)

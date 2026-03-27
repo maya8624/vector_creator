@@ -13,6 +13,9 @@ class PgVectorStoreService:
     def create_vector_store(self) -> PGVectorStore:
         parsed = urlparse(settings.POSTGRES_URL)
 
+        if not parsed.hostname or not parsed.path or not parsed.username:
+            raise ValueError("Invalid POSTGRES_URL configuration")
+
         return PGVectorStore.from_params(
             database=parsed.path.lstrip("/"),
             host=parsed.hostname,
