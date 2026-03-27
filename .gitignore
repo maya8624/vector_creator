@@ -40,6 +40,8 @@ data/
 chroma_db/
 *.sqlite
 *.db
+*.backup
+*.dump
 *.parquet
 *.bin
 *.index
@@ -55,6 +57,7 @@ Thumbs.db
 # Environment files
 # -----------------------------
 .env
+.env.docker
 .env.*.local
 
 # -----------------------------

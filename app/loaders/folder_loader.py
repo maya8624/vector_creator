@@ -9,4 +9,4 @@ class FolderLoader:
         if not self.folder_path.exists():
             raise FileNotFoundError(f"Folder not found: {self.folder_path}")
 
-        return [file for file in self.folder_path.rglob("*") if file.is_file()]
+        return sorted([file for file in self.folder_path.rglob("*") if file.is_file()])

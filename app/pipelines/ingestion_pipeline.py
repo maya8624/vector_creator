@@ -1,50 +1,48 @@
+import logging
 
-from pathlib import Path
-
-from llama_index.core.ingestion import DocstoreStrategy, IngestionPipeline
-from llama_index.core.node_parser import MarkdownNodeParser
-from llama_index.core.storage.docstore import SimpleDocumentStore
-
+from app.core.config import settings
+from app.core.logging import setup_logging
 from app.embeddings.embedding_service import EmbeddingService
+from app.loaders.folder_loader import FolderLoader
 from app.parsers.llama_parse_service import LlamaParseService
+from app.pipelines.ingestion_pipeline import DocumentIngestionPipeline
 from app.database.pgvector_store import PgVectorStoreService
-from app.enrichment import DocumentMetadataEnricher
 
 
-class DocumentIngestionPipeline:
-    """
-    Orchestrates the document ingestion workflow:
-    parse -> enrich -> split -> embed -> store
-    """
+logger = logging.getLogger(__name__)
 
-    def __init__(
-        self,
-        parser_service: LlamaParseService,
-        embedding_service: EmbeddingService,
-        vector_store_service: PgVectorStoreService,
-    ) -> None:
-        self._parser_service = parser_service
-        self._embedding_service = embedding_service
-        self._vector_store = vector_store_service.create_vector_store()
 
-        self._pipeline = IngestionPipeline(
-            transformations=[
-                DocumentMetadataEnricher(),
-                MarkdownNodeParser(),
-                self._embedding_service.model,
-            ],
-            vector_store=self._vector_store,
-            docstore=SimpleDocumentStore(),
-            docstore_strategy=DocstoreStrategy.UPSERTS,
+def main() -> None:
+    setup_logging()
+
+    loader = FolderLoader(settings.DOCUMENT_PATH)
+    parser_service = LlamaParseService()
+    embedding_service = EmbeddingService()
+    vector_store_service = PgVectorStoreService()
+
+    ingestion_pipeline = DocumentIngestionPipeline(
+        parser_service=parser_service,
+        embedding_service=embedding_service,
+        vector_store_service=vector_store_service,
+    )
+
+    files = loader.load_files()
+
+    if not files:
+        logger.warning(
+            "No files found in document path: %s",
+            settings.DOCUMENT_PATH
         )
+        return
 
-    def run(self, file_path: Path) -> None:
-        """
-        Ingest a single file into the vector store.
-        """
-        documents = self._parser_service.parse(file_path)
+    logger.info("Found %d files to ingest", len(files))
 
-        if not documents:
-            return
+    for file_path in files:
+        try:
+            ingestion_pipeline.run(file_path)
+        except Exception:
+            logger.exception("Failed to ingest file: %s", file_path)
 
-        self._pipeline.run(documents=documents)
+
+if __name__ == "__main__":
+    main()
