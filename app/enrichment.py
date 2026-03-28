@@ -1,5 +1,5 @@
 import logging
-from typing import Any
+from typing import Any, ClassVar
 
 from llama_index.core.schema import MetadataMode, TransformComponent
 
@@ -20,9 +20,9 @@ class DocumentMetadataEnricher(TransformComponent):
     4. Fallback to 'generic' if anything fails.
     """
 
-    DEFAULT_DOC_TYPE = "generic"
-    ALLOWED_DOC_TYPES = {"faq", "policy", "guide", "generic"}
-    MAX_CLASSIFICATION_CHARS = 2000
+    DEFAULT_DOC_TYPE: ClassVar[str] = "generic"
+    ALLOWED_DOC_TYPES: ClassVar[set[str]] = {"faq", "policy", "guide", "generic"}
+    MAX_CLASSIFICATION_CHARS: ClassVar[int] = 2000
 
     def __call__(self, nodes: list[Any], **kwargs: Any) -> list[Any]:
         for node in nodes:

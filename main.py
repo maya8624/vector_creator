@@ -1,36 +1,48 @@
-import os
 import logging
-from pathlib import Path
-from app.core.config import settings
-from ingestion import IngestionService
-from pathlib import Path
-from app.parsers.llama_parse_service import LlamaParseService
 
-parser = LlamaParseService()
-logging.basicConfig(level=logging.INFO)
+from app.core.config import settings
+from app.core.logging import setup_logging
+from app.embeddings.embedding_service import EmbeddingService
+from app.loaders.folder_loader import FolderLoader
+from app.parsers.llama_parse_service import LlamaParseService
+from app.pipelines.ingestion_pipeline import DocumentIngestionPipeline
+from app.database.pgvector_store import PgVectorStoreService
+
+
 logger = logging.getLogger(__name__)
 
 
 def main() -> None:
-    # Ensure data directory exists
-    doc_path = Path(settings.DOCUMENT_PATH)
+    setup_logging()
 
-    if not doc_path.exists():
-        doc_path.mkdir(parents=True, exist_ok=True)
-        return f"Folder created at {doc_path}. Please add files to ingest."
+    loader = FolderLoader(settings.DOCUMENT_PATH)
+    parser_service = LlamaParseService()
+    embedding_service = EmbeddingService()
+    vector_store_service = PgVectorStoreService()
 
-    parser = LlamaParseService()
-    docs = parser.parse(Path("./data/documents/market_report_q1_2025.pdf"))
+    ingestion_pipeline = DocumentIngestionPipeline(
+        parser_service=parser_service,
+        embedding_service=embedding_service,
+        vector_store_service=vector_store_service,
+    )
 
-    print(len(docs))
-    print(docs[0].text[:500])
+    files = loader.load_files()
 
-    # logger.info("Starting ingestion from '%s' into '%s'",
-    #             doc_path, settings.CHROMA_DB_PATH)
+    if not files:
+        logger.warning(
+            "No files found in document path: %s",
+            settings.DOCUMENT_PATH
+        )
+        return
 
-    # service = IngestionService(db_path=settings.CHROMA_DB_PATH)
+    logger.info("Found %d files to ingest", len(files))
 
-    # service.run(doc_path=doc_path)
+    for file_path in files:
+        try:
+            ingestion_pipeline.run(file_path)
+            logger.info("Successfully ingested file: %s", file_path)
+        except Exception:
+            logger.exception("Failed to ingest file: %s", file_path)
 
 
 if __name__ == "__main__":

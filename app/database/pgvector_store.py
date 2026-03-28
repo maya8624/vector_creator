@@ -24,4 +24,5 @@ class PgVectorStoreService:
             user=parsed.username,
             table_name=settings.VECTOR_TABLE,
             embed_dim=settings.EMBEDDING_DIM,
+            perform_setup=True,
         )
