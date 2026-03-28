@@ -3,6 +3,11 @@ from typing import Any, ClassVar
 
 from llama_index.core.schema import MetadataMode, TransformComponent
 
+from app.core.constants import (
+    ALLOWED_DOC_TYPES,
+    CLASSIFICATION_RULES,
+    DOC_TYPE_GENERIC,
+)
 from app.llm_classifier import classify_with_llama
 
 
@@ -20,8 +25,8 @@ class DocumentMetadataEnricher(TransformComponent):
     4. Fallback to 'generic' if anything fails.
     """
 
-    DEFAULT_DOC_TYPE: ClassVar[str] = "generic"
-    ALLOWED_DOC_TYPES: ClassVar[set[str]] = {"faq", "policy", "guide", "generic"}
+    DEFAULT_DOC_TYPE: ClassVar[str] = DOC_TYPE_GENERIC
+    ALLOWED_DOC_TYPES: ClassVar[frozenset[str]] = ALLOWED_DOC_TYPES
     MAX_CLASSIFICATION_CHARS: ClassVar[int] = 2000
 
     def __call__(self, nodes: list[Any], **kwargs: Any) -> list[Any]:
@@ -80,7 +85,7 @@ class DocumentMetadataEnricher(TransformComponent):
 
         normalized = llm_result.strip().lower()
 
-        # ✅ Step 3: validation
+        # Step 3: validation
         if normalized not in self.ALLOWED_DOC_TYPES:
             return self.DEFAULT_DOC_TYPE
 
@@ -90,13 +95,9 @@ class DocumentMetadataEnricher(TransformComponent):
     def _classify_by_rules(text: str) -> str | None:
         text_lower = text.lower()
 
-        if "q:" in text_lower and "a:" in text_lower:
-            return "faq"
-
-        if "policy" in text_lower or "terms" in text_lower:
-            return "policy"
-
-        if "step 1" in text_lower or "guide" in text_lower:
-            return "guide"
+        for doc_type, keywords, match_all in CLASSIFICATION_RULES:
+            check = all if match_all else any
+            if check(kw in text_lower for kw in keywords):
+                return doc_type
 
         return None
