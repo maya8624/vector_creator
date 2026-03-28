@@ -1,13 +1,14 @@
 import asyncio
+import logging
 
-from app.core.logging import setup_logging
 from app.embeddings.embedding_service import EmbeddingService
 from app.rag.retriever import RagRetriever
 from app.database.pgvector_store import PgVectorStoreService
 
+logger = logging.getLogger(__name__)
+
 
 async def main() -> None:
-    setup_logging()
 
     retriever = RagRetriever(
         vector_store_service=PgVectorStoreService(),
