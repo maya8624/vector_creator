@@ -9,7 +9,7 @@ from llama_index.core.storage.docstore import SimpleDocumentStore
 
 from app.embeddings.embedding_service import EmbeddingService
 from app.parsers.llama_parse_service import LlamaParseService
-from app.database.pgvector_store import PgVectorStoreService
+from app.database.pgvector_service import PgVectorStoreService
 from app.enrichment import DocumentMetadataEnricher
 
 logger = logging.getLogger(__name__)

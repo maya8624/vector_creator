@@ -1,19 +1,17 @@
 import logging
 
 from app.core.config import settings
-from app.core.logging import setup_logging
 from app.embeddings.embedding_service import EmbeddingService
 from app.loaders.folder_loader import FolderLoader
 from app.parsers.llama_parse_service import LlamaParseService
 from app.pipelines.ingestion_pipeline import DocumentIngestionPipeline
-from app.database.pgvector_store import PgVectorStoreService
+from app.database.pgvector_service import PgVectorStoreService
 
 
 logger = logging.getLogger(__name__)
 
 
 def main() -> None:
-    setup_logging()
 
     loader = FolderLoader(settings.DOCUMENT_PATH)
     parser_service = LlamaParseService()

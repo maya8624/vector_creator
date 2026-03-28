@@ -2,7 +2,7 @@ from llama_index.core import VectorStoreIndex
 from llama_index.core.schema import NodeWithScore
 
 from app.embeddings.embedding_service import EmbeddingService
-from app.database.pgvector_store import PgVectorStoreService
+from app.database.pgvector_service import PgVectorStoreService
 
 
 class RagRetriever:

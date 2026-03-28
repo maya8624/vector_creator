@@ -3,7 +3,7 @@ import logging
 
 from app.embeddings.embedding_service import EmbeddingService
 from app.rag.retriever import RagRetriever
-from app.database.pgvector_store import PgVectorStoreService
+from app.database.pgvector_service import PgVectorStoreService
 
 logger = logging.getLogger(__name__)
 
