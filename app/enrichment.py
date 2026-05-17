@@ -3,6 +3,7 @@ from typing import Any, ClassVar
 
 from llama_index.core.schema import MetadataMode, TransformComponent
 
+from app.core.config import settings
 from app.core.constants import (
     ALLOWED_DOC_TYPES,
     CLASSIFICATION_RULES,
@@ -42,6 +43,8 @@ class DocumentMetadataEnricher(TransformComponent):
 
                 doc_type = self._classify_document(content)
                 metadata["doc_type"] = doc_type
+                metadata["agency_id"] = settings.AGENCY_ID
+                metadata["agency_name"] = settings.AGENCY_NAME
 
                 if file_path:
                     metadata.setdefault("source", file_path)

@@ -20,6 +20,8 @@ class Settings(BaseSettings):
     # SECRET_API_KEY: str
     CHROMA_DB_PATH: str
     DOCUMENT_PATH: str
+    AGENCY_ID: str
+    AGENCY_NAME: str
     EMBEDDING_MODEL: str
     LLAMA_MODEL_NAME: str
     LLAMA_MODEL_PATH: str

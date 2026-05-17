@@ -19,16 +19,64 @@ ALLOWED_DOC_TYPES: Final[frozenset[str]] = frozenset({
     DOC_TYPE_NOTICE,
     DOC_TYPE_INVOICE,
     DOC_TYPE_GENERIC,
+    # DOC_TYPE_LEGISLATION
 })
 
 # Rule-based classification keywords
 FAQ_KEYWORDS: Final[tuple[str, ...]] = ("q:", "a:")
-POLICY_KEYWORDS: Final[tuple[str, ...]] = ("policy", "terms")
-GUIDE_KEYWORDS: Final[tuple[str, ...]] = ("step 1", "guide")
-CONTRACT_KEYWORDS: Final[tuple[str, ...]] = ("lease", "agreement", "signed by", "tenant", "landlord", "bond")
-REPORT_KEYWORDS: Final[tuple[str, ...]] = ("market report", "valuation", "inspection", "summary report")
-NOTICE_KEYWORDS: Final[tuple[str, ...]] = ("notice to", "hereby notified", "vacate", "breach")
-INVOICE_KEYWORDS: Final[tuple[str, ...]] = ("invoice", "amount due", "payment receipt", "total:")
+
+POLICY_KEYWORDS: Final[tuple[str, ...]] = (
+    "policy",
+    "terms",
+    "agency profile",
+    "about us"
+)
+
+GUIDE_KEYWORDS: Final[tuple[str, ...]] = (
+    "step 1",
+    "guide",
+    "suburb",
+    "median rent",
+    "vacancy rate",
+    "transport",
+    "schools"
+)
+
+# NOTE: lease-template.pdf and nsw-tenancy-act.pdf both classify as "contract"
+# If legislation needs to be distinguished from agency leases in future,
+# add DOC_TYPE_LEGISLATION = "legislation" and update CLASSIFICATION_RULES
+CONTRACT_KEYWORDS: Final[tuple[str, ...]] = (
+    "lease",
+    "agreement",
+    "signed by",
+    "tenant",
+    "landlord",
+    "bond"
+)
+
+REPORT_KEYWORDS: Final[tuple[str, ...]] = (
+    "market report",
+    "valuation",
+    "inspection",
+    "summary report"
+)
+
+NOTICE_KEYWORDS: Final[tuple[str, ...]] = (
+    "notice to",
+    "hereby notified",
+    "vacate",
+    "breach"
+)
+
+INVOICE_KEYWORDS: Final[tuple[str, ...]] = (
+    "invoice",
+    "amount due",
+    "payment receipt",
+    "total:",
+    "fee schedule",
+    "fees payable",
+    "schedule of fees"
+)
 
 # Ordered rules: (doc_type, keywords, match_all)
 # match_all=True  → all keywords must be present (e.g. FAQ requires both "q:" and "a:")
