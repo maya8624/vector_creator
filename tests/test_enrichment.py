@@ -104,6 +104,32 @@ class TestClassifyDocument:
         enricher = DocumentMetadataEnricher()
         assert enricher._classify_document("") == "generic"
 
+    def test_manifest_hit_returns_correct_type(self):
+        enricher = DocumentMetadataEnricher()
+        with patch.object(DocumentMetadataEnricher, "_manifest", {"suburb-guides.pdf": "guide"}):
+            result = enricher._classify_document("lease bond tenant landlord", "suburb-guides.pdf")
+            assert result == "guide"
+
+    def test_manifest_takes_priority_over_rules(self):
+        enricher = DocumentMetadataEnricher()
+        with patch.object(DocumentMetadataEnricher, "_manifest", {"fee-schedule.pdf": "invoice"}):
+            with patch("app.enrichment.classify_with_llama") as mock_llm:
+                result = enricher._classify_document("lease bond tenant", "fee-schedule.pdf")
+                mock_llm.assert_not_called()
+                assert result == "invoice"
+
+    def test_manifest_miss_falls_through_to_rules(self):
+        enricher = DocumentMetadataEnricher()
+        with patch.object(DocumentMetadataEnricher, "_manifest", {}):
+            result = enricher._classify_document("Q: Hello A: World", "unknown.pdf")
+            assert result == "faq"
+
+    def test_empty_filename_skips_manifest(self):
+        enricher = DocumentMetadataEnricher()
+        with patch.object(DocumentMetadataEnricher, "_manifest", {"suburb-guides.pdf": "guide"}):
+            result = enricher._classify_document("Q: Hello A: World", "")
+            assert result == "faq"
+
     def test_rule_based_takes_priority_over_llm(self):
         enricher = DocumentMetadataEnricher()
         with patch("app.enrichment.classify_with_llama") as mock_llm:
@@ -170,6 +196,18 @@ class TestEnricherCall:
         node = make_node("Step 1: do this.", metadata={"file_path": "/new.txt", "source": "/original.txt"})
         enricher([node])
         assert node.metadata["source"] == "/original.txt"
+
+    def test_agency_id_added_to_node_metadata(self):
+        enricher = DocumentMetadataEnricher()
+        node = make_node("This is our policy document.")
+        enricher([node])
+        assert "agency_id" in node.metadata
+
+    def test_agency_name_added_to_node_metadata(self):
+        enricher = DocumentMetadataEnricher()
+        node = make_node("This is our policy document.")
+        enricher([node])
+        assert "agency_name" in node.metadata
 
     def test_exception_falls_back_to_generic(self):
         enricher = DocumentMetadataEnricher()

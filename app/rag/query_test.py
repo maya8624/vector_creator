@@ -16,7 +16,7 @@ async def main() -> None:
         similarity_top_k=3,
     )
 
-    query = "What is the property address and bond amount for the contract?"
+    query = " suburb summary for Bondi Beach"
     results = await retriever.aretrieve(query)
 
     print(f"\nQuery: {query}\n")
@@ -31,7 +31,7 @@ async def main() -> None:
         print(f"File: {metadata.get('file_name', 'unknown')}")
         print(f"Source: {metadata.get('source', 'unknown')}")
         print(f"Doc Type: {metadata.get('doc_type', 'unknown')}")
-        print(f"Text Preview: {node.get_content()[:500]}")
+        print(f"Text Preview: {node.get_content()[:1000]}")
         print()
 
 

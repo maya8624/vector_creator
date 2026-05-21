@@ -12,17 +12,18 @@ llm = ChatOllama(
 )
 
 
-def classify_with_llama(text: str) -> str:
+def classify_with_llama(text: str, filename: str = "") -> str:
     """
     Use Ollama to classify documents.
     """
+    filename_hint = f"\nFilename: {filename}" if filename else ""
     prompt = f"""
         Classify this document into one of the following types:
-        - faq, policy, guide, market_report, contract, generic
-
-        Document:
+        - faq, policy, guide, contract, report, notice, invoice, generic
+        {filename_hint}
+        Document excerpt:
         {text}
-        
+
         Respond with ONLY the type name.
         """
 
