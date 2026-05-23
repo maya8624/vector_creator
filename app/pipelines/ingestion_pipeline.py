@@ -11,6 +11,7 @@ from app.embeddings.embedding_service import EmbeddingService
 from app.parsers.llama_parse_service import LlamaParseService
 from app.database.pgvector_service import PgVectorStoreService
 from app.enrichment import DocumentMetadataEnricher
+from app.suggestions.suggestion_service import generate_suggestions_for_document
 
 logger = logging.getLogger(__name__)
 
@@ -56,5 +57,7 @@ class DocumentIngestionPipeline:
             return
 
         self._pipeline.run(documents=documents)
+
+        generate_suggestions_for_document(file_name=file_path.name)
 
         logger.info("Completed ingestion for file: %s", file_path)

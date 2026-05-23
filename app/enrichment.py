@@ -1,5 +1,6 @@
 import json
 import logging
+import uuid
 from pathlib import Path
 from typing import Any, ClassVar
 
@@ -59,6 +60,8 @@ class DocumentMetadataEnricher(TransformComponent):
                 metadata["doc_type"] = doc_type
                 metadata["agency_id"] = settings.AGENCY_ID
                 metadata["agency_name"] = settings.AGENCY_NAME
+                metadata["user_id"] = settings.USER_ID
+                metadata["doc_id"] = str(uuid.uuid5(uuid.NAMESPACE_DNS, f"{settings.AGENCY_ID}:{file_name}"))
 
                 if file_path:
                     metadata.setdefault("source", file_path)

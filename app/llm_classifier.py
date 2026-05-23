@@ -8,7 +8,7 @@ from langchain_ollama import ChatOllama
 llm = ChatOllama(
     model=settings.LLAMA_MODEL_NAME,
     temperature=0,
-    num_predict=15  # TODO: set max_token, Equivalent to max_tokens
+    num_predict=1024,
 )
 
 
