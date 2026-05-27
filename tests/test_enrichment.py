@@ -33,21 +33,69 @@ class TestClassifyByRules:
         enricher = DocumentMetadataEnricher()
         assert enricher._classify_by_rules("This guide explains how to proceed.") == "guide"
 
-    def test_contract_detected_by_lease_keyword(self):
+    def test_lease_detected_by_lease_agreement_keyword(self):
         enricher = DocumentMetadataEnricher()
-        assert enricher._classify_by_rules("This lease agreement is valid for 12 months.") == "contract"
+        assert enricher._classify_by_rules("This lease agreement is valid for 12 months.") == "lease"
 
-    def test_contract_detected_by_tenant_keyword(self):
+    def test_lease_detected_by_tenant_keyword(self):
         enricher = DocumentMetadataEnricher()
-        assert enricher._classify_by_rules("The tenant must pay rent on time.") == "contract"
+        assert enricher._classify_by_rules("The tenant must pay rent on time.") == "lease"
 
-    def test_contract_detected_by_landlord_keyword(self):
+    def test_lease_detected_by_landlord_keyword(self):
         enricher = DocumentMetadataEnricher()
-        assert enricher._classify_by_rules("The landlord agrees to maintain the property.") == "contract"
+        assert enricher._classify_by_rules("The landlord agrees to maintain the property.") == "lease"
 
-    def test_contract_detected_by_bond_keyword(self):
+    def test_lease_detected_by_bond_keyword(self):
         enricher = DocumentMetadataEnricher()
-        assert enricher._classify_by_rules("A bond of $2000 is required.") == "contract"
+        assert enricher._classify_by_rules("A bond of $2000 is required.") == "lease"
+
+    def test_inspection_notice_detected_by_routine_inspection_keyword(self):
+        enricher = DocumentMetadataEnricher()
+        assert enricher._classify_by_rules("Routine inspection scheduled for next Monday.") == "inspection_notice"
+
+    def test_inspection_notice_detected_by_inspection_notice_keyword(self):
+        enricher = DocumentMetadataEnricher()
+        assert enricher._classify_by_rules("This is an inspection notice for the property.") == "inspection_notice"
+
+    def test_renewal_offer_detected_by_lease_renewal_keyword(self):
+        enricher = DocumentMetadataEnricher()
+        assert enricher._classify_by_rules("Lease renewal offer enclosed for your review.") == "renewal_offer"
+
+    def test_renewal_offer_detected_by_offer_to_renew_keyword(self):
+        enricher = DocumentMetadataEnricher()
+        assert enricher._classify_by_rules("We would like to offer to renew your tenancy.") == "renewal_offer"
+
+    def test_bond_lodgement_detected_by_bond_lodgement_keyword(self):
+        enricher = DocumentMetadataEnricher()
+        assert enricher._classify_by_rules("Bond lodgement receipt issued by NSW Fair Trading.") == "bond_lodgement"
+
+    def test_bond_lodgement_detected_by_bond_reference_keyword(self):
+        enricher = DocumentMetadataEnricher()
+        assert enricher._classify_by_rules("Your bond reference number is RB-2025-0001.") == "bond_lodgement"
+
+    def test_rent_ledger_detected_by_rent_ledger_keyword(self):
+        enricher = DocumentMetadataEnricher()
+        assert enricher._classify_by_rules("Rent ledger for the period February to May 2025.") == "rent_ledger"
+
+    def test_rent_ledger_detected_by_payment_history_keyword(self):
+        enricher = DocumentMetadataEnricher()
+        assert enricher._classify_by_rules("Payment history summary for tenant.") == "rent_ledger"
+
+    def test_water_bill_detected_by_water_usage_keyword(self):
+        enricher = DocumentMetadataEnricher()
+        assert enricher._classify_by_rules("Water usage: 45 kilolitres this quarter.") == "water_bill"
+
+    def test_water_bill_detected_by_sydney_water_keyword(self):
+        enricher = DocumentMetadataEnricher()
+        assert enricher._classify_by_rules("Sydney Water bill for Q1 2025.") == "water_bill"
+
+    def test_maintenance_log_detected_by_maintenance_log_keyword(self):
+        enricher = DocumentMetadataEnricher()
+        assert enricher._classify_by_rules("Maintenance log for 12 Campbell Pde.") == "maintenance_log"
+
+    def test_maintenance_log_detected_by_work_order_keyword(self):
+        enricher = DocumentMetadataEnricher()
+        assert enricher._classify_by_rules("Work order #4421 issued for plumbing repair.") == "maintenance_log"
 
     def test_report_detected_by_valuation_keyword(self):
         enricher = DocumentMetadataEnricher()
@@ -93,10 +141,20 @@ class TestClassifyByRules:
         enricher = DocumentMetadataEnricher()
         assert enricher._classify_by_rules("POLICY document here.") == "policy"
 
-    def test_contract_takes_priority_over_policy(self):
-        """'agreement' and 'terms' both present — contract should win."""
+    def test_lease_takes_priority_over_policy(self):
+        """'lease agreement' and 'terms' both present — lease should win."""
         enricher = DocumentMetadataEnricher()
-        assert enricher._classify_by_rules("Lease agreement terms apply.") == "contract"
+        assert enricher._classify_by_rules("Lease agreement terms apply.") == "lease"
+
+    def test_inspection_notice_takes_priority_over_notice(self):
+        """'routine inspection' present — inspection_notice should win over notice."""
+        enricher = DocumentMetadataEnricher()
+        assert enricher._classify_by_rules("Routine inspection notice to tenant.") == "inspection_notice"
+
+    def test_bond_lodgement_takes_priority_over_lease(self):
+        """'bond lodgement' present — bond_lodgement should win over lease."""
+        enricher = DocumentMetadataEnricher()
+        assert enricher._classify_by_rules("Bond lodgement receipt for tenant bond.") == "bond_lodgement"
 
 
 class TestClassifyDocument:
@@ -104,31 +162,24 @@ class TestClassifyDocument:
         enricher = DocumentMetadataEnricher()
         assert enricher._classify_document("") == "generic"
 
-    def test_manifest_hit_returns_correct_type(self):
+    def test_manifest_entry_returns_correct_type(self):
         enricher = DocumentMetadataEnricher()
-        with patch.object(DocumentMetadataEnricher, "_manifest", {"suburb-guides.pdf": "guide"}):
-            result = enricher._classify_document("lease bond tenant landlord", "suburb-guides.pdf")
-            assert result == "guide"
+        manifest_entry = {"document_type": "guide"}
+        result = enricher._classify_document("lease bond tenant landlord", "suburb-guides.pdf", manifest_entry)
+        assert result == "guide"
 
-    def test_manifest_takes_priority_over_rules(self):
+    def test_manifest_entry_takes_priority_over_rules(self):
         enricher = DocumentMetadataEnricher()
-        with patch.object(DocumentMetadataEnricher, "_manifest", {"fee-schedule.pdf": "invoice"}):
-            with patch("app.enrichment.classify_with_llama") as mock_llm:
-                result = enricher._classify_document("lease bond tenant", "fee-schedule.pdf")
-                mock_llm.assert_not_called()
-                assert result == "invoice"
+        manifest_entry = {"document_type": "invoice"}
+        with patch("app.enrichment.classify_with_llama") as mock_llm:
+            result = enricher._classify_document("lease bond tenant", "fee-schedule.pdf", manifest_entry)
+            mock_llm.assert_not_called()
+            assert result == "invoice"
 
-    def test_manifest_miss_falls_through_to_rules(self):
+    def test_no_manifest_entry_falls_through_to_rules(self):
         enricher = DocumentMetadataEnricher()
-        with patch.object(DocumentMetadataEnricher, "_manifest", {}):
-            result = enricher._classify_document("Q: Hello A: World", "unknown.pdf")
-            assert result == "faq"
-
-    def test_empty_filename_skips_manifest(self):
-        enricher = DocumentMetadataEnricher()
-        with patch.object(DocumentMetadataEnricher, "_manifest", {"suburb-guides.pdf": "guide"}):
-            result = enricher._classify_document("Q: Hello A: World", "")
-            assert result == "faq"
+        result = enricher._classify_document("Q: Hello A: World", "unknown.pdf")
+        assert result == "faq"
 
     def test_rule_based_takes_priority_over_llm(self):
         enricher = DocumentMetadataEnricher()
@@ -162,9 +213,13 @@ class TestClassifyDocument:
             result = enricher._classify_document("Some content.")
             assert result == "policy"
 
-    def test_llm_can_return_new_doc_types(self):
+    def test_llm_can_return_all_allowed_types(self):
         enricher = DocumentMetadataEnricher()
-        for doc_type in ("contract", "report", "notice", "invoice"):
+        for doc_type in (
+            "lease", "report", "notice", "invoice",
+            "water_bill", "inspection_notice", "renewal_offer",
+            "maintenance_log", "bond_lodgement", "rent_ledger",
+        ):
             with patch("app.enrichment.classify_with_llama", return_value=doc_type):
                 result = enricher._classify_document("Some content.")
                 assert result == doc_type
@@ -230,7 +285,7 @@ class TestEnricherCall:
         enricher(nodes)
         assert nodes[0].metadata["doc_type"] == "faq"
         assert nodes[1].metadata["doc_type"] == "policy"
-        assert nodes[2].metadata["doc_type"] == "contract"
+        assert nodes[2].metadata["doc_type"] == "lease"
         assert nodes[3].metadata["doc_type"] == "notice"
         assert nodes[4].metadata["doc_type"] == "invoice"
         assert nodes[5].metadata["doc_type"] == "report"

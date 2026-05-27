@@ -18,14 +18,27 @@ from app.llm_classifier import classify_with_llama
 logger = logging.getLogger(__name__)
 
 _MANIFEST_PATH = Path(__file__).resolve().parent.parent / \
-    "data" / "doc_type_manifest.json"
+    "data" / "doc_metadata_manifest.json"
+
+_MANIFEST_EXTRA_FIELDS: frozenset[str] = frozenset({
+    "lease_start",
+    "lease_end",
+    "billing_period",
+    "inspection_date",
+    "offer_expiry",
+    "bond_reference",
+    "statement_period",
+    "notice_type",
+    "effective_date",
+})
 
 
-def _load_manifest() -> dict[str, str]:
+def _load_manifest() -> dict[str, dict]:
     if not _MANIFEST_PATH.exists():
         return {}
     with _MANIFEST_PATH.open() as f:
-        return json.load(f)
+        data = json.load(f)
+    return {doc["filename"]: doc for doc in data.get("documents", [])}
 
 
 class DocumentMetadataEnricher(TransformComponent):
@@ -33,17 +46,18 @@ class DocumentMetadataEnricher(TransformComponent):
     Adds document classification metadata to each node.
 
     Strategy:
-    1. Check manual manifest (filename → doc_type).
+    1. Check manual manifest (filename → doc entry) — resolves doc_type and all
+       structured fields (tenant_id, property_id, description, doc-type-specific).
     2. Try rule-based classification.
     3. Fall back to LLM classification.
     4. Validate output against allowed types.
-    5. Fallback to 'generic' if anything fails.
+    5. Default to 'generic' if all strategies fail.
     """
 
     DEFAULT_DOC_TYPE: ClassVar[str] = DOC_TYPE_GENERIC
     ALLOWED_DOC_TYPES: ClassVar[frozenset[str]] = ALLOWED_DOC_TYPES
     MAX_CLASSIFICATION_CHARS: ClassVar[int] = 2000
-    _manifest: ClassVar[dict[str, str]] = _load_manifest()
+    _manifest: ClassVar[dict[str, dict]] = _load_manifest()
 
     def __call__(self, nodes: list[Any], **kwargs: Any) -> list[Any]:
         for node in nodes:
@@ -52,16 +66,22 @@ class DocumentMetadataEnricher(TransformComponent):
             file_path = metadata.get("file_path", "")
 
             try:
-                content = node.get_content(
-                    metadata_mode=MetadataMode.NONE
-                ).strip()
+                content = node.get_content(metadata_mode=MetadataMode.NONE).strip()
+                manifest_entry = self._manifest.get(file_name, {})
 
-                doc_type = self._classify_document(content, file_name)
-                metadata["doc_type"] = doc_type
+                metadata["doc_type"] = self._classify_document(content, file_name, manifest_entry)
                 metadata["agency_id"] = settings.AGENCY_ID
                 metadata["agency_name"] = settings.AGENCY_NAME
-                metadata["user_id"] = settings.USER_ID
-                metadata["doc_id"] = str(uuid.uuid5(uuid.NAMESPACE_DNS, f"{settings.AGENCY_ID}:{file_name}"))
+                metadata["tenant_id"] = manifest_entry.get("tenant_id")
+                metadata["property_id"] = manifest_entry.get("property_id")
+                metadata["description"] = manifest_entry.get("description")
+                metadata["doc_id"] = str(uuid.uuid5(
+                    uuid.NAMESPACE_DNS, f"{settings.AGENCY_ID}:{file_name}"
+                ))
+
+                for field in _MANIFEST_EXTRA_FIELDS:
+                    if field in manifest_entry:
+                        metadata[field] = manifest_entry[field]
 
                 if file_path:
                     metadata.setdefault("source", file_path)
@@ -72,7 +92,7 @@ class DocumentMetadataEnricher(TransformComponent):
                     "Tagged document node",
                     extra={
                         "file_name": file_name,
-                        "doc_type": doc_type,
+                        "doc_type": metadata["doc_type"],
                     },
                 )
 
@@ -87,13 +107,18 @@ class DocumentMetadataEnricher(TransformComponent):
 
         return nodes
 
-    def _classify_document(self, text: str, filename: str = "") -> str:
+    def _classify_document(
+        self,
+        text: str,
+        filename: str = "",
+        manifest_entry: dict | None = None,
+    ) -> str:
         if not text:
             return self.DEFAULT_DOC_TYPE
 
         # Step 1: manifest lookup
-        if filename and filename in self._manifest:
-            return self._manifest[filename]
+        if manifest_entry and "document_type" in manifest_entry:
+            return manifest_entry["document_type"]
 
         # Step 2: rule-based
         rule_based_type = self._classify_by_rules(text)

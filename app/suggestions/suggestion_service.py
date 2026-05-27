@@ -67,7 +67,7 @@ def _fetch_document_data(file_name: str) -> tuple[list[str], str, str]:
         select(
             _vector_table.c.text,
             _vector_table.c.metadata_["doc_id"].as_string(),
-            _vector_table.c.metadata_["user_id"].as_string(),
+            _vector_table.c.metadata_["tenant_id"].as_string(),
         )
         .where(_vector_table.c.metadata_["file_name"].as_string() == file_name)
     )

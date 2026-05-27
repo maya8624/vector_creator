@@ -18,14 +18,31 @@ def classify_with_llama(text: str, filename: str = "") -> str:
     """
     filename_hint = f"\nFilename: {filename}" if filename else ""
     prompt = f"""
-        Classify this document into one of the following types:
-        - faq, policy, guide, contract, report, notice, invoice, generic
-        {filename_hint}
-        Document excerpt:
-        {text}
+    Classify this real estate document into one of the following types:
 
-        Respond with ONLY the type name.
-        """
+    Tenancy documents:
+    - lease                  (residential tenancy agreement, lease agreement)
+    - water_bill             (water usage invoice, utility bill, water charge notice)
+    - inspection_notice      (routine inspection notice, entry notice, condition report)
+    - renewal_offer          (lease renewal offer, rent renewal letter)
+    - maintenance_log        (maintenance request, repair log, tradesperson invoice)
+    - bond_lodgement         (bond receipt, bond lodgement confirmation, rental bond)
+    - rent_ledger            (rent statement, payment history, rental ledger)
+    - notice                 (rent increase notice, breach notice, vacating notice, termination notice)
+
+    General documents:
+    - faq                    (frequently asked questions)
+    - policy                 (agency policy, terms of service)
+    - guide                  (tenant guide, how-to guide)
+    - report                 (market report, inspection report)
+    - generic                (anything that does not fit the above)
+
+    {filename_hint}
+    Document excerpt:
+    {text}
+
+    Respond with ONLY the type name.
+    """
 
     try:
         # LangChain's standardized invoke method

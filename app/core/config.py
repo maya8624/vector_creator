@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     DOCUMENT_PATH: str
     AGENCY_ID: str
     AGENCY_NAME: str
-    USER_ID: str
+    TENANT_ID: str
     EMBEDDING_MODEL: str
     LLAMA_MODEL_NAME: str
     LLAMA_MODEL_PATH: str
