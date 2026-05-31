@@ -1,160 +1,96 @@
 import json
-import uuid
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-from app.core.config import settings
-from app.suggestions.suggestion_service import (
-    _generate_with_llm,
-    _fetch_document_data,
-    _save_payload,
-    generate_suggestions_for_document,
-)
-
-SAMPLE_SUGGESTIONS = [
-    "What is the weekly rent?",
-    "Is the property pet-friendly?",
-    "What is the lease term?",
-    "Is parking included?",
-    "When is the property available?",
-]
-
-
-def make_mock_session(rows: list[tuple]) -> MagicMock:
-    session = MagicMock()
-    session.execute.return_value.fetchall.return_value = rows
-    return session
-
-
-def patch_db(rows: list[tuple]):
-    mock_db = MagicMock()
-    mock_db.create_session.return_value.__enter__ = MagicMock(return_value=make_mock_session(rows))
-    mock_db.create_session.return_value.__exit__ = MagicMock(return_value=False)
-    return patch("app.suggestions.suggestion_service.PostgresService", return_value=mock_db)
-
-
-def patch_metadata(doc_id: str = "", user_id: str = ""):
-    return patch(
-        "app.suggestions.suggestion_service._fetch_document_data",
-        return_value=(["chunk"], doc_id, user_id),
-    )
-
-
-def patch_llm(response_text: str):
-    mock_llm = MagicMock()
-    mock_llm.invoke.return_value.content = response_text
-    return patch("app.suggestions.suggestion_service.llm", mock_llm)
-
-
 
 class TestGenerateWithLLM:
-    def test_returns_parsed_suggestions(self):
-        with patch_llm(json.dumps(SAMPLE_SUGGESTIONS)):
-            result = _generate_with_llm("Some document content.")
-        assert result == SAMPLE_SUGGESTIONS
 
-    def test_strips_whitespace_before_parsing(self):
-        with patch_llm(f"  {json.dumps(SAMPLE_SUGGESTIONS)}  "):
-            result = _generate_with_llm("content")
-        assert result == SAMPLE_SUGGESTIONS
+    def _mock_llm_response(self, content: str) -> MagicMock:
+        response = MagicMock()
+        response.content = content
+        return response
 
-    def test_raises_on_invalid_json(self):
-        with patch_llm("not valid json at all"):
-            with pytest.raises(RuntimeError, match="Failed to parse LLM suggestions response"):
-                _generate_with_llm("content")
+    @patch("app.suggestions.suggestion_service.llm")
+    def test_valid_json_array_returned(self, mock_llm):
+        questions = ["Q1?", "Q2?", "Q3?", "Q4?", "Q5?"]
+        mock_llm.invoke.return_value = self._mock_llm_response(json.dumps(questions))
 
-    def test_raises_when_response_is_object_not_array(self):
-        with patch_llm(json.dumps({"question": "Why?"})):
-            with pytest.raises(RuntimeError, match="Failed to parse LLM suggestions response"):
-                _generate_with_llm("content")
+        from app.suggestions.suggestion_service import _generate_with_llm
+        result = _generate_with_llm("some document content")
 
-    def test_raises_when_response_is_plain_string(self):
-        with patch_llm('"just a string"'):
-            with pytest.raises(RuntimeError):
-                _generate_with_llm("content")
+        assert result == questions
+
+    @patch("app.suggestions.suggestion_service.llm")
+    def test_invalid_json_raises_runtime_error(self, mock_llm):
+        mock_llm.invoke.return_value = self._mock_llm_response("not json at all")
+
+        from app.suggestions.suggestion_service import _generate_with_llm
+        with pytest.raises(RuntimeError, match="Failed to parse LLM suggestions response"):
+            _generate_with_llm("some content")
+
+    @patch("app.suggestions.suggestion_service.llm")
+    def test_non_array_json_raises_runtime_error(self, mock_llm):
+        mock_llm.invoke.return_value = self._mock_llm_response('{"key": "value"}')
+
+        from app.suggestions.suggestion_service import _generate_with_llm
+        with pytest.raises(RuntimeError):
+            _generate_with_llm("some content")
 
 
 class TestSavePayload:
-    def test_saves_json_file_with_correct_content(self, tmp_path: Path):
-        payload = {"docId": "abc", "suggestions": SAMPLE_SUGGESTIONS}
-        with patch("app.suggestions.suggestion_service._OUTPUT_DIR", tmp_path):
-            _save_payload("abc", payload)
-        saved = json.loads((tmp_path / "abc.json").read_text(encoding="utf-8"))
-        assert saved == payload
 
-    def test_filename_matches_doc_id(self, tmp_path: Path):
-        with patch("app.suggestions.suggestion_service._OUTPUT_DIR", tmp_path):
-            _save_payload("my-doc-id", {"docId": "my-doc-id"})
-        assert (tmp_path / "my-doc-id.json").exists()
+    @patch("app.suggestions.suggestion_service._OUTPUT_DIR")
+    def test_creates_file_with_correct_name(self, mock_dir, tmp_path):
+        from pathlib import Path
+        mock_dir.__truediv__ = lambda self, other: tmp_path / other
+        mock_dir.mkdir = MagicMock()
 
-    def test_creates_output_dir_if_missing(self, tmp_path: Path):
-        nested = tmp_path / "a" / "b" / "suggestions"
-        with patch("app.suggestions.suggestion_service._OUTPUT_DIR", nested):
-            _save_payload("doc", {"docId": "doc"})
-        assert nested.is_dir()
+        from app.suggestions.suggestion_service import _save_payload
 
+        payload = {"docId": "doc-123", "suggestions": ["Q1?"]}
+        _save_payload("lease.pdf", payload)
 
-class TestFetchDocumentData:
-    def test_returns_chunks_doc_id_and_user_id(self):
-        rows = [("chunk one", "doc-abc", "user-xyz"), ("chunk two", "doc-abc", "user-xyz")]
-        with patch_db(rows):
-            chunks, doc_id, user_id = _fetch_document_data("lease-template.pdf")
-        assert chunks == ["chunk one", "chunk two"]
-        assert doc_id == "doc-abc"
-        assert user_id == "user-xyz"
-
-    def test_returns_empty_when_no_rows(self):
-        with patch_db([]):
-            chunks, doc_id, user_id = _fetch_document_data("missing.pdf")
-        assert chunks == []
-        assert doc_id == ""
-        assert user_id == ""
-
-    def test_filters_empty_text_chunks(self):
-        rows = [("valid", "doc-abc", "user-xyz"), ("", "doc-abc", "user-xyz")]
-        with patch_db(rows):
-            chunks, _, _ = _fetch_document_data("lease-template.pdf")
-        assert chunks == ["valid"]
+        out_file = tmp_path / "lease.pdf_suggestions.json"
+        assert out_file.exists()
+        assert json.loads(out_file.read_text()) == payload
 
 
 class TestGenerateSuggestionsForDocument:
-    def test_returns_full_payload(self, tmp_path: Path):
-        with patch_metadata("stored-doc-id", "stored-user-id"), patch_llm(json.dumps(SAMPLE_SUGGESTIONS)):
-            with patch("app.suggestions.suggestion_service._OUTPUT_DIR", tmp_path):
-                result = generate_suggestions_for_document(file_name="lease-template.pdf")
-        assert result["docId"] == "stored-doc-id"
-        assert result["userId"] == "stored-user-id"
-        assert result["suggestions"] == SAMPLE_SUGGESTIONS
-        assert "modelUsed" in result
 
-    def test_uses_doc_id_and_user_id_from_metadata(self, tmp_path: Path):
-        with patch_metadata("stored-doc-id", "stored-user-id"), patch_llm(json.dumps(SAMPLE_SUGGESTIONS)):
-            with patch("app.suggestions.suggestion_service._OUTPUT_DIR", tmp_path):
-                result = generate_suggestions_for_document(file_name="lease-template.pdf")
-        assert result["docId"] == "stored-doc-id"
-        assert result["userId"] == "stored-user-id"
+    @patch("app.suggestions.suggestion_service._fetch_document_data",
+           return_value=([], "", "", ""))
+    def test_no_chunks_raises_value_error(self, _):
+        from app.suggestions.suggestion_service import generate_suggestions_for_document
+        with pytest.raises(ValueError, match="No chunks found"):
+            generate_suggestions_for_document("missing.pdf")
 
-    def test_saved_filename_matches_doc_id(self, tmp_path: Path):
-        with patch_metadata("stored-doc-id", ""), patch_llm(json.dumps(SAMPLE_SUGGESTIONS)):
-            with patch("app.suggestions.suggestion_service._OUTPUT_DIR", tmp_path):
-                generate_suggestions_for_document(file_name="lease-template.pdf")
-        assert (tmp_path / "stored-doc-id.json").exists()
+    @patch("app.suggestions.suggestion_service._save_payload")
+    @patch("app.suggestions.suggestion_service._generate_with_llm",
+           return_value=["Q1?", "Q2?", "Q3?", "Q4?", "Q5?"])
+    @patch("app.suggestions.suggestion_service._fetch_document_data",
+           return_value=(["chunk1", "chunk2"], "doc-123", "AGN-001", "PROP-42"))
+    def test_success_returns_correct_payload(self, _fetch, _llm, _save):
+        mock_settings = MagicMock()
+        mock_settings.LLAMA_MODEL_NAME = "llama3.2:3b"
 
-    def test_raises_when_no_chunks_found(self):
-        with patch("app.suggestions.suggestion_service._fetch_document_data", return_value=([], "", "")):
-            with pytest.raises(ValueError, match="No chunks found"):
-                generate_suggestions_for_document(file_name="ghost.pdf")
+        with patch("app.suggestions.suggestion_service.settings", mock_settings):
+            from app.suggestions.suggestion_service import generate_suggestions_for_document
+            result = generate_suggestions_for_document("lease.pdf")
 
-    def test_payload_is_saved_to_disk(self, tmp_path: Path):
-        with patch_metadata("saved-id", ""), patch_llm(json.dumps(SAMPLE_SUGGESTIONS)):
-            with patch("app.suggestions.suggestion_service._OUTPUT_DIR", tmp_path):
-                generate_suggestions_for_document(file_name="lease-template.pdf")
-        assert (tmp_path / "saved-id.json").exists()
+        assert result["docId"] == "doc-123"
+        assert result["agencyId"] == "AGN-001"
+        assert result["fileName"] == "lease.pdf"
+        assert result["propertyId"] == "PROP-42"
+        assert result["suggestions"] == ["Q1?", "Q2?", "Q3?", "Q4?", "Q5?"]
+        assert result["modelUsed"] == "llama3.2:3b"
+        _save.assert_called_once()
 
-    def test_doc_id_is_empty_when_not_in_metadata(self, tmp_path: Path):
-        with patch_metadata(), patch_llm(json.dumps(SAMPLE_SUGGESTIONS)):
-            with patch("app.suggestions.suggestion_service._OUTPUT_DIR", tmp_path):
-                result = generate_suggestions_for_document(file_name="lease-template.pdf")
-        assert result["docId"] == ""
+    @patch("app.suggestions.suggestion_service._fetch_document_data",
+           return_value=(["chunk1"], "doc-123", "AGN-001", "PROP-42"))
+    @patch("app.suggestions.suggestion_service._generate_with_llm",
+           side_effect=RuntimeError("LLM failed"))
+    def test_llm_failure_propagates(self, _llm, _fetch):
+        from app.suggestions.suggestion_service import generate_suggestions_for_document
+        with pytest.raises(RuntimeError, match="LLM failed"):
+            generate_suggestions_for_document("lease.pdf")

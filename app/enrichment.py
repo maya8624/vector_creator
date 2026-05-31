@@ -68,16 +68,14 @@ class DocumentMetadataEnricher(TransformComponent):
             try:
                 content = node.get_content(metadata_mode=MetadataMode.NONE).strip()
                 manifest_entry = self._manifest.get(file_name, {})
+                agency_id = manifest_entry.get("agency_id", "")
+
 
                 metadata["doc_type"] = self._classify_document(content, file_name, manifest_entry)
-                metadata["agency_id"] = settings.AGENCY_ID
-                metadata["agency_name"] = settings.AGENCY_NAME
-                metadata["tenant_id"] = manifest_entry.get("tenant_id")
-                metadata["property_id"] = manifest_entry.get("property_id")
+                metadata["agency_id"] = agency_id              
+                metadata["property_id"] = manifest_entry.get("property_id", "")
                 metadata["description"] = manifest_entry.get("description")
-                metadata["doc_id"] = str(uuid.uuid5(
-                    uuid.NAMESPACE_DNS, f"{settings.AGENCY_ID}:{file_name}"
-                ))
+                metadata["doc_id"] = str(uuid.uuid5(uuid.NAMESPACE_DNS, f"{agency_id}:{file_name}"))
 
                 for field in _MANIFEST_EXTRA_FIELDS:
                     if field in manifest_entry:

@@ -1,7 +1,5 @@
 from urllib.parse import urlparse
-
 from llama_index.vector_stores.postgres import PGVectorStore
-
 from app.core.config import settings
 
 

@@ -23,9 +23,7 @@ _vector_table = Table(
 )
 
 
-def generate_suggestions_for_document(
-    file_name: str,
-) -> dict[str, object]:
+def generate_suggestions_for_document(file_name: str) -> dict[str, object]:
     """
     Fetch stored chunks for a document, generate 5 property-agent questions via LLM,
     and save the result payload to data/suggestions/<doc_id>.json.
@@ -36,7 +34,7 @@ def generate_suggestions_for_document(
     Returns:
         Dict matching SaveDocumentSuggestionRequest.
     """
-    chunks, stored_doc_id, stored_user_id = _fetch_document_data(file_name)
+    chunks, stored_doc_id, stored_agency_id, stored_property_id = _fetch_document_data(file_name)
 
     if not chunks:
         raise ValueError(
@@ -50,24 +48,27 @@ def generate_suggestions_for_document(
 
     payload = {
         "docId": stored_doc_id,
-        "userId": stored_user_id,
+        "agencyId": stored_agency_id,
+        "fileName": file_name,
+        "propertyId": stored_property_id,
         "suggestions": suggestions,
         "modelUsed": settings.LLAMA_MODEL_NAME,
     }
 
-    _save_payload(str(payload["docId"]), payload)
+    _save_payload(file_name, payload)
 
     return payload
 
 
 
-def _fetch_document_data(file_name: str) -> tuple[list[str], str, str]:
+def _fetch_document_data(file_name: str) -> tuple[list[str], str, str, str]:
     db = PostgresService()
     query = (
         select(
             _vector_table.c.text,
             _vector_table.c.metadata_["doc_id"].as_string(),
-            _vector_table.c.metadata_["tenant_id"].as_string(),
+            _vector_table.c.metadata_["agency_id"].as_string(),
+            _vector_table.c.metadata_["property_id"].as_string(),
         )
         .where(_vector_table.c.metadata_["file_name"].as_string() == file_name)
     )
@@ -75,12 +76,13 @@ def _fetch_document_data(file_name: str) -> tuple[list[str], str, str]:
         rows = session.execute(query).fetchall()
 
     if not rows:
-        return [], "", ""
+        return [], "", "", ""
 
     chunks = [row[0] for row in rows if row[0]]
     doc_id = rows[0][1] or ""
-    user_id = rows[0][2] or ""
-    return chunks, doc_id, user_id
+    agency_id = rows[0][2] or ""
+    property_id = rows[0][3] or ""
+    return chunks, doc_id, agency_id, property_id
 
 
 def _generate_with_llm(content: str) -> list[str]:
@@ -104,8 +106,8 @@ def _generate_with_llm(content: str) -> list[str]:
             f"Failed to parse LLM suggestions response: {e}") from e
 
 
-def _save_payload(doc_id: str, payload: dict[str, object]) -> None:
+def _save_payload(file_name: str, payload: dict[str, object]) -> None:
     _OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    out_path = _OUTPUT_DIR / f"{doc_id}.json"
+    out_path = _OUTPUT_DIR / f"{file_name}_suggestions.json"
     out_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
     logger.info("Saved suggestion payload to %s", out_path)

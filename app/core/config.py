@@ -18,11 +18,7 @@ class Settings(BaseSettings):
     """
     POSTGRES_URL: str
     # SECRET_API_KEY: str
-    CHROMA_DB_PATH: str
     DOCUMENT_PATH: str
-    AGENCY_ID: str
-    AGENCY_NAME: str
-    TENANT_ID: str
     EMBEDDING_MODEL: str
     LLAMA_MODEL_NAME: str
     LLAMA_MODEL_PATH: str
@@ -30,7 +26,7 @@ class Settings(BaseSettings):
     LLAMA_CONTEXT: str
     LLAMA_CLOUD_API_KEY: str
     VECTOR_TABLE: str
-    EMBEDDING_DIM: int = 384  # This should match the dimension of the embedding model
+    EMBEDDING_DIM: int = 1024  # This should match the dimension of the embedding model
     # Use SettingsConfigDict for better structure
     model_config = SettingsConfigDict(
         env_file=str(env_path),

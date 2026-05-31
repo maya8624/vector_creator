@@ -84,7 +84,6 @@ Create a `.env` file in the project root (see `.env.docker.example` for the data
 | `LLAMA_CLOUD_API_KEY` | LlamaParse API key |
 | `LLAMA_MODEL_NAME` | Ollama model name for LLM classification |
 | `DOCUMENT_PATH` | Absolute path to the folder containing documents to ingest |
-| `CHROMA_DB_PATH` | Path for ChromaDB (optional, not used in default pipeline) |
 
 ### 3. Install dependencies
 

@@ -31,11 +31,10 @@ def classify_with_llama(text: str, filename: str = "") -> str:
     - notice                 (rent increase notice, breach notice, vacating notice, termination notice)
 
     General documents:
+    - legislation            (residential tenancies act, tenancy legislation, NSW RTA, government act)
     - faq                    (frequently asked questions)
-    - policy                 (agency policy, terms of service)
+    - policy                 (agency policy, terms of service, anything that does not fit the above)
     - guide                  (tenant guide, how-to guide)
-    - report                 (market report, inspection report)
-    - generic                (anything that does not fit the above)
 
     {filename_hint}
     Document excerpt:
@@ -50,6 +49,6 @@ def classify_with_llama(text: str, filename: str = "") -> str:
         doc_type = response.content.strip().lower()
     except Exception as e:
         print(f"Classification Error: {e}")
-        doc_type = "generic"
+        doc_type = "policy"
 
     return doc_type

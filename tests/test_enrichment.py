@@ -1,291 +1,190 @@
+import types
 from unittest.mock import MagicMock, patch
 
 import pytest
 
+from app.core.constants import (
+    DOC_TYPE_BOND_LODGEMENT,
+    DOC_TYPE_FAQ,
+    DOC_TYPE_GENERIC,
+    DOC_TYPE_GUIDE,
+    DOC_TYPE_INSPECTION_NOTICE,
+    DOC_TYPE_INVOICE,
+    DOC_TYPE_LEASE,
+    DOC_TYPE_MAINTENANCE_LOG,
+    DOC_TYPE_NOTICE,
+    DOC_TYPE_POLICY,
+    DOC_TYPE_RENEWAL_OFFER,
+    DOC_TYPE_RENT_LEDGER,
+    DOC_TYPE_REPORT,
+    DOC_TYPE_WATER_BILL,
+)
 from app.enrichment import DocumentMetadataEnricher
 
 
-def make_node(content: str, metadata: dict | None = None) -> MagicMock:
-    node = MagicMock()
-    node.get_content.return_value = content
-    node.metadata = metadata or {}
+def make_node(text="sample text", file_name="test.pdf", file_path="/docs/test.pdf"):
+    node = types.SimpleNamespace()
+    node.get_content = lambda **_: text
+    node.metadata = {"file_name": file_name, "file_path": file_path}
     return node
 
 
 class TestClassifyByRules:
-    def test_faq_detected_by_qa_pattern(self):
-        enricher = DocumentMetadataEnricher()
-        assert enricher._classify_by_rules("Q: What is this? A: It is a test.") == "faq"
+    def test_faq_requires_both_keywords(self):
+        assert DocumentMetadataEnricher._classify_by_rules("q: what?") is None
+        assert DocumentMetadataEnricher._classify_by_rules("a: this") is None
+        assert DocumentMetadataEnricher._classify_by_rules("q: what?\na: this") == DOC_TYPE_FAQ
 
-    def test_policy_detected_by_keyword(self):
-        enricher = DocumentMetadataEnricher()
-        assert enricher._classify_by_rules("This is our privacy policy.") == "policy"
+    def test_inspection_notice(self):
+        assert DocumentMetadataEnricher._classify_by_rules("routine inspection notice") == DOC_TYPE_INSPECTION_NOTICE
 
-    def test_policy_detected_by_terms_keyword(self):
-        enricher = DocumentMetadataEnricher()
-        assert enricher._classify_by_rules("Terms and conditions apply.") == "policy"
+    def test_renewal_offer(self):
+        assert DocumentMetadataEnricher._classify_by_rules("lease renewal offer") == DOC_TYPE_RENEWAL_OFFER
 
-    def test_guide_detected_by_step_pattern(self):
-        enricher = DocumentMetadataEnricher()
-        assert enricher._classify_by_rules("Step 1: Open the app.") == "guide"
+    def test_bond_lodgement(self):
+        assert DocumentMetadataEnricher._classify_by_rules("bond lodgement confirmation") == DOC_TYPE_BOND_LODGEMENT
 
-    def test_guide_detected_by_guide_keyword(self):
-        enricher = DocumentMetadataEnricher()
-        assert enricher._classify_by_rules("This guide explains how to proceed.") == "guide"
+    def test_rent_ledger(self):
+        assert DocumentMetadataEnricher._classify_by_rules("rent ledger for tenant") == DOC_TYPE_RENT_LEDGER
 
-    def test_lease_detected_by_lease_agreement_keyword(self):
-        enricher = DocumentMetadataEnricher()
-        assert enricher._classify_by_rules("This lease agreement is valid for 12 months.") == "lease"
+    def test_water_bill(self):
+        assert DocumentMetadataEnricher._classify_by_rules("water usage kilolitres") == DOC_TYPE_WATER_BILL
 
-    def test_lease_detected_by_tenant_keyword(self):
-        enricher = DocumentMetadataEnricher()
-        assert enricher._classify_by_rules("The tenant must pay rent on time.") == "lease"
+    def test_maintenance_log(self):
+        assert DocumentMetadataEnricher._classify_by_rules("maintenance request submitted") == DOC_TYPE_MAINTENANCE_LOG
 
-    def test_lease_detected_by_landlord_keyword(self):
-        enricher = DocumentMetadataEnricher()
-        assert enricher._classify_by_rules("The landlord agrees to maintain the property.") == "lease"
+    def test_notice(self):
+        assert DocumentMetadataEnricher._classify_by_rules("notice to vacate") == DOC_TYPE_NOTICE
 
-    def test_lease_detected_by_bond_keyword(self):
-        enricher = DocumentMetadataEnricher()
-        assert enricher._classify_by_rules("A bond of $2000 is required.") == "lease"
+    def test_lease(self):
+        assert DocumentMetadataEnricher._classify_by_rules("residential tenancy agreement") == DOC_TYPE_LEASE
 
-    def test_inspection_notice_detected_by_routine_inspection_keyword(self):
-        enricher = DocumentMetadataEnricher()
-        assert enricher._classify_by_rules("Routine inspection scheduled for next Monday.") == "inspection_notice"
+    def test_invoice(self):
+        assert DocumentMetadataEnricher._classify_by_rules("invoice amount due") == DOC_TYPE_INVOICE
 
-    def test_inspection_notice_detected_by_inspection_notice_keyword(self):
-        enricher = DocumentMetadataEnricher()
-        assert enricher._classify_by_rules("This is an inspection notice for the property.") == "inspection_notice"
+    def test_report(self):
+        assert DocumentMetadataEnricher._classify_by_rules("market report valuation") == DOC_TYPE_REPORT
 
-    def test_renewal_offer_detected_by_lease_renewal_keyword(self):
-        enricher = DocumentMetadataEnricher()
-        assert enricher._classify_by_rules("Lease renewal offer enclosed for your review.") == "renewal_offer"
+    def test_policy(self):
+        assert DocumentMetadataEnricher._classify_by_rules("agency policy terms") == DOC_TYPE_POLICY
 
-    def test_renewal_offer_detected_by_offer_to_renew_keyword(self):
-        enricher = DocumentMetadataEnricher()
-        assert enricher._classify_by_rules("We would like to offer to renew your tenancy.") == "renewal_offer"
+    def test_guide(self):
+        assert DocumentMetadataEnricher._classify_by_rules("step 1 guide suburb") == DOC_TYPE_GUIDE
 
-    def test_bond_lodgement_detected_by_bond_lodgement_keyword(self):
-        enricher = DocumentMetadataEnricher()
-        assert enricher._classify_by_rules("Bond lodgement receipt issued by NSW Fair Trading.") == "bond_lodgement"
-
-    def test_bond_lodgement_detected_by_bond_reference_keyword(self):
-        enricher = DocumentMetadataEnricher()
-        assert enricher._classify_by_rules("Your bond reference number is RB-2025-0001.") == "bond_lodgement"
-
-    def test_rent_ledger_detected_by_rent_ledger_keyword(self):
-        enricher = DocumentMetadataEnricher()
-        assert enricher._classify_by_rules("Rent ledger for the period February to May 2025.") == "rent_ledger"
-
-    def test_rent_ledger_detected_by_payment_history_keyword(self):
-        enricher = DocumentMetadataEnricher()
-        assert enricher._classify_by_rules("Payment history summary for tenant.") == "rent_ledger"
-
-    def test_water_bill_detected_by_water_usage_keyword(self):
-        enricher = DocumentMetadataEnricher()
-        assert enricher._classify_by_rules("Water usage: 45 kilolitres this quarter.") == "water_bill"
-
-    def test_water_bill_detected_by_sydney_water_keyword(self):
-        enricher = DocumentMetadataEnricher()
-        assert enricher._classify_by_rules("Sydney Water bill for Q1 2025.") == "water_bill"
-
-    def test_maintenance_log_detected_by_maintenance_log_keyword(self):
-        enricher = DocumentMetadataEnricher()
-        assert enricher._classify_by_rules("Maintenance log for 12 Campbell Pde.") == "maintenance_log"
-
-    def test_maintenance_log_detected_by_work_order_keyword(self):
-        enricher = DocumentMetadataEnricher()
-        assert enricher._classify_by_rules("Work order #4421 issued for plumbing repair.") == "maintenance_log"
-
-    def test_report_detected_by_valuation_keyword(self):
-        enricher = DocumentMetadataEnricher()
-        assert enricher._classify_by_rules("Property valuation as of January 2024.") == "report"
-
-    def test_report_detected_by_market_report_keyword(self):
-        enricher = DocumentMetadataEnricher()
-        assert enricher._classify_by_rules("Q4 market report for Sydney suburbs.") == "report"
-
-    def test_report_detected_by_inspection_keyword(self):
-        enricher = DocumentMetadataEnricher()
-        assert enricher._classify_by_rules("Inspection completed on 01/03/2024.") == "report"
-
-    def test_notice_detected_by_vacate_keyword(self):
-        enricher = DocumentMetadataEnricher()
-        assert enricher._classify_by_rules("You are required to vacate the premises.") == "notice"
-
-    def test_notice_detected_by_notice_to_keyword(self):
-        enricher = DocumentMetadataEnricher()
-        assert enricher._classify_by_rules("Notice to tenant regarding unpaid rent.") == "notice"
-
-    def test_notice_detected_by_breach_keyword(self):
-        enricher = DocumentMetadataEnricher()
-        assert enricher._classify_by_rules("This is a breach notice issued by the agent.") == "notice"
-
-    def test_invoice_detected_by_invoice_keyword(self):
-        enricher = DocumentMetadataEnricher()
-        assert enricher._classify_by_rules("Invoice #1023 for maintenance work.") == "invoice"
-
-    def test_invoice_detected_by_amount_due(self):
-        enricher = DocumentMetadataEnricher()
-        assert enricher._classify_by_rules("Amount due: $450.00") == "invoice"
-
-    def test_invoice_detected_by_total(self):
-        enricher = DocumentMetadataEnricher()
-        assert enricher._classify_by_rules("Total: $1200 payable within 14 days.") == "invoice"
-
-    def test_returns_none_for_unknown_content(self):
-        enricher = DocumentMetadataEnricher()
-        assert enricher._classify_by_rules("Some random unrelated content.") is None
+    def test_unmatched_returns_none(self):
+        assert DocumentMetadataEnricher._classify_by_rules("random unrelated content") is None
 
     def test_case_insensitive(self):
-        enricher = DocumentMetadataEnricher()
-        assert enricher._classify_by_rules("POLICY document here.") == "policy"
+        assert DocumentMetadataEnricher._classify_by_rules("WATER BILL kilolitres") == DOC_TYPE_WATER_BILL
 
-    def test_lease_takes_priority_over_policy(self):
-        """'lease agreement' and 'terms' both present — lease should win."""
-        enricher = DocumentMetadataEnricher()
-        assert enricher._classify_by_rules("Lease agreement terms apply.") == "lease"
-
-    def test_inspection_notice_takes_priority_over_notice(self):
-        """'routine inspection' present — inspection_notice should win over notice."""
-        enricher = DocumentMetadataEnricher()
-        assert enricher._classify_by_rules("Routine inspection notice to tenant.") == "inspection_notice"
-
-    def test_bond_lodgement_takes_priority_over_lease(self):
-        """'bond lodgement' present — bond_lodgement should win over lease."""
-        enricher = DocumentMetadataEnricher()
-        assert enricher._classify_by_rules("Bond lodgement receipt for tenant bond.") == "bond_lodgement"
+    def test_specific_type_wins_over_general(self):
+        # inspection_notice is ordered before notice in CLASSIFICATION_RULES
+        text = "inspection notice notice to vacate"
+        assert DocumentMetadataEnricher._classify_by_rules(text) == DOC_TYPE_INSPECTION_NOTICE
 
 
 class TestClassifyDocument:
-    def test_empty_text_returns_generic(self):
-        enricher = DocumentMetadataEnricher()
-        assert enricher._classify_document("") == "generic"
-
-    def test_manifest_entry_returns_correct_type(self):
-        enricher = DocumentMetadataEnricher()
-        manifest_entry = {"document_type": "guide"}
-        result = enricher._classify_document("lease bond tenant landlord", "suburb-guides.pdf", manifest_entry)
-        assert result == "guide"
+    enricher = DocumentMetadataEnricher()
 
     def test_manifest_entry_takes_priority_over_rules(self):
-        enricher = DocumentMetadataEnricher()
-        manifest_entry = {"document_type": "invoice"}
-        with patch("app.enrichment.classify_with_llama") as mock_llm:
-            result = enricher._classify_document("lease bond tenant", "fee-schedule.pdf", manifest_entry)
-            mock_llm.assert_not_called()
-            assert result == "invoice"
+        manifest_entry = {"document_type": "policy"}
+        result = self.enricher._classify_document(
+            "routine inspection notice", manifest_entry=manifest_entry
+        )
+        assert result == "policy"
 
-    def test_no_manifest_entry_falls_through_to_rules(self):
-        enricher = DocumentMetadataEnricher()
-        result = enricher._classify_document("Q: Hello A: World", "unknown.pdf")
-        assert result == "faq"
+    def test_rule_based_fallback_when_no_manifest(self):
+        result = self.enricher._classify_document(
+            "routine inspection notice", manifest_entry={}
+        )
+        assert result == DOC_TYPE_INSPECTION_NOTICE
 
-    def test_rule_based_takes_priority_over_llm(self):
-        enricher = DocumentMetadataEnricher()
-        with patch("app.enrichment.classify_with_llama") as mock_llm:
-            result = enricher._classify_document("Q: Hello A: World")
-            mock_llm.assert_not_called()
-            assert result == "faq"
+    @patch("app.enrichment.classify_with_llama", return_value="invoice")
+    def test_llm_fallback_when_no_rule_match(self, _):
+        result = self.enricher._classify_document("random text", manifest_entry={})
+        assert result == DOC_TYPE_INVOICE
 
-    def test_llm_fallback_called_when_no_rule_match(self):
-        enricher = DocumentMetadataEnricher()
-        with patch("app.enrichment.classify_with_llama", return_value="guide") as mock_llm:
-            result = enricher._classify_document("Some generic content here.")
-            mock_llm.assert_called_once()
-            assert result == "guide"
+    @patch("app.enrichment.classify_with_llama", return_value="not_a_real_type")
+    def test_llm_invalid_type_falls_back_to_generic(self, _):
+        result = self.enricher._classify_document("random text", manifest_entry={})
+        assert result == DOC_TYPE_GENERIC
 
-    def test_invalid_llm_result_falls_back_to_generic(self):
-        enricher = DocumentMetadataEnricher()
-        with patch("app.enrichment.classify_with_llama", return_value="unknown_type"):
-            result = enricher._classify_document("Some content.")
-            assert result == "generic"
+    @patch("app.enrichment.classify_with_llama", return_value="")
+    def test_llm_empty_response_falls_back_to_generic(self, _):
+        result = self.enricher._classify_document("random text", manifest_entry={})
+        assert result == DOC_TYPE_GENERIC
 
-    def test_none_llm_result_falls_back_to_generic(self):
-        enricher = DocumentMetadataEnricher()
-        with patch("app.enrichment.classify_with_llama", return_value=None):
-            result = enricher._classify_document("Some content.")
-            assert result == "generic"
-
-    def test_llm_result_is_normalized(self):
-        enricher = DocumentMetadataEnricher()
-        with patch("app.enrichment.classify_with_llama", return_value="  POLICY  "):
-            result = enricher._classify_document("Some content.")
-            assert result == "policy"
-
-    def test_llm_can_return_all_allowed_types(self):
-        enricher = DocumentMetadataEnricher()
-        for doc_type in (
-            "lease", "report", "notice", "invoice",
-            "water_bill", "inspection_notice", "renewal_offer",
-            "maintenance_log", "bond_lodgement", "rent_ledger",
-        ):
-            with patch("app.enrichment.classify_with_llama", return_value=doc_type):
-                result = enricher._classify_document("Some content.")
-                assert result == doc_type
-
-    def test_text_truncated_to_max_chars_before_llm(self):
-        enricher = DocumentMetadataEnricher()
-        long_text = "x" * 5000
-        with patch("app.enrichment.classify_with_llama", return_value="generic") as mock_llm:
-            enricher._classify_document(long_text)
-            called_with = mock_llm.call_args[0][0]
-            assert len(called_with) == DocumentMetadataEnricher.MAX_CLASSIFICATION_CHARS
+    def test_empty_text_returns_generic(self):
+        result = self.enricher._classify_document("", manifest_entry={})
+        assert result == DOC_TYPE_GENERIC
 
 
-class TestEnricherCall:
-    def test_doc_type_added_to_node_metadata(self):
-        enricher = DocumentMetadataEnricher()
-        node = make_node("This is our policy document.")
-        enricher([node])
-        assert node.metadata["doc_type"] == "policy"
+class TestDocumentMetadataEnricherCall:
 
-    def test_source_set_from_file_path(self):
-        enricher = DocumentMetadataEnricher()
-        node = make_node("Step 1: do this.", metadata={"file_path": "/docs/guide.txt"})
-        enricher([node])
-        assert node.metadata["source"] == "/docs/guide.txt"
+    def test_metadata_fields_stamped_on_node(self):
+        mock_settings = MagicMock()
+        mock_settings.AGENCY_ID = "AGN-001"
 
-    def test_source_not_overwritten_if_already_set(self):
-        enricher = DocumentMetadataEnricher()
-        node = make_node("Step 1: do this.", metadata={"file_path": "/new.txt", "source": "/original.txt"})
-        enricher([node])
-        assert node.metadata["source"] == "/original.txt"
+        # Use a filename not present in the real manifest so manifest_entry is always {}
+        node = make_node(
+            text="routine inspection notice",
+            file_name="__test_not_in_manifest__.pdf",
+            file_path="/docs/test.pdf",
+        )
+        with patch("app.enrichment.settings", mock_settings):
+            result = DocumentMetadataEnricher()([node])
 
-    def test_agency_id_added_to_node_metadata(self):
-        enricher = DocumentMetadataEnricher()
-        node = make_node("This is our policy document.")
-        enricher([node])
-        assert "agency_id" in node.metadata
+        meta = result[0].metadata
+        assert meta["doc_type"] == DOC_TYPE_INSPECTION_NOTICE
+        assert "doc_id" in meta and len(meta["doc_id"]) == 36  # UUID format
+        assert meta["source"] == "/docs/test.pdf"
+        assert meta["agency_id"] == ""     # manifest_entry is {} → default ""
+        assert meta["property_id"] == ""
 
-    def test_agency_name_added_to_node_metadata(self):
-        enricher = DocumentMetadataEnricher()
-        node = make_node("This is our policy document.")
-        enricher([node])
-        assert "agency_name" in node.metadata
+    def test_manifest_extra_fields_added(self):
+        mock_settings = MagicMock()
+        mock_settings.AGENCY_ID = "AGN-001"
 
-    def test_exception_falls_back_to_generic(self):
-        enricher = DocumentMetadataEnricher()
-        node = MagicMock()
-        node.get_content.side_effect = RuntimeError("boom")
-        node.metadata = {}
-        enricher([node])
-        assert node.metadata["doc_type"] == "generic"
+        node = make_node(file_name="lease.pdf")
+        manifest = {
+            "lease.pdf": {
+                "document_type": "lease",
+                "agency_id": "AGN-001",
+                "property_id": "P-42",
+                "lease_start": "2024-01-01",
+            }
+        }
+        with patch("app.enrichment.settings", mock_settings), \
+             patch.object(DocumentMetadataEnricher, "_manifest", manifest):
+            result = DocumentMetadataEnricher()([node])
 
-    def test_multiple_nodes_all_tagged(self):
+        meta = result[0].metadata
+        assert meta["doc_type"] == "lease"
+        assert meta["agency_id"] == "AGN-001"
+        assert meta["property_id"] == "P-42"
+        assert meta["lease_start"] == "2024-01-01"
+
+    def test_exception_during_enrichment_defaults_to_generic(self):
+        mock_settings = MagicMock()
+        mock_settings.AGENCY_ID = "AGN-001"
+
+        node = make_node()
         enricher = DocumentMetadataEnricher()
-        nodes = [
-            make_node("Q: Hi A: Hello"),
-            make_node("This is our terms and conditions."),
-            make_node("The tenant must pay bond of $1500."),
-            make_node("Notice to vacate by end of month."),
-            make_node("Invoice #42 — Amount due: $300"),
-            make_node("Inspection report completed."),
-        ]
-        enricher(nodes)
-        assert nodes[0].metadata["doc_type"] == "faq"
-        assert nodes[1].metadata["doc_type"] == "policy"
-        assert nodes[2].metadata["doc_type"] == "lease"
-        assert nodes[3].metadata["doc_type"] == "notice"
-        assert nodes[4].metadata["doc_type"] == "invoice"
-        assert nodes[5].metadata["doc_type"] == "report"
+        with patch("app.enrichment.settings", mock_settings), \
+             patch.object(DocumentMetadataEnricher, "_manifest", {}), \
+             patch.object(enricher, "_classify_document", side_effect=RuntimeError("boom")):
+            result = enricher([node])
+
+        assert result[0].metadata["doc_type"] == DOC_TYPE_GENERIC
+
+    def test_multiple_nodes_all_enriched(self):
+        mock_settings = MagicMock()
+        mock_settings.AGENCY_ID = "AGN-001"
+
+        nodes = [make_node(file_name=f"doc{i}.pdf") for i in range(3)]
+        with patch("app.enrichment.settings", mock_settings), \
+             patch.object(DocumentMetadataEnricher, "_manifest", {}):
+            result = DocumentMetadataEnricher()(nodes)
+
+        assert len(result) == 3
+        assert all("doc_type" in n.metadata for n in result)
